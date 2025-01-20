@@ -85,7 +85,7 @@ public struct SwiftWhois {
         - Parameter domain: The domain to query
         - Returns: The raw IANA data
     */
-    static func queryIANA(for domain: String) async throws -> String? {
+    public static func queryIANA(for domain: String) async throws -> String? {
         return try await SwiftWhoisNetwork.whoisQuery(domain: domain, server: "whois.iana.org")
     }
     
@@ -94,14 +94,14 @@ public struct SwiftWhois {
         - Parameter domain: The domain to query
         - Returns: The Whois server for the domain
     */
-    static func findWhoisServer(for domain: String) async throws -> String? {
+    public static func findWhoisServer(for domain: String) async throws -> String? {
         if let ianaResponse = try await queryIANA(for: domain) {
             return SwiftWhoisParser.extractWhoisServer(from: ianaResponse)
         }
         return nil
     }
 
-    static func findCachedWhoisServer(for domain: String) -> String? {
+    public static func findCachedWhoisServer(for domain: String) -> String? {
         let tld = domain.components(separatedBy: ".").last ?? ""
         return cacheTldWhoisServer[tld]
     }
