@@ -49,16 +49,38 @@ struct SwiftWhoisNetwork {
     }
 
     static func receiveWhoisResponse(connection: NWConnection, continuation: CheckedContinuation<String, Error>) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, isComplete, receiveError in
-            if let data = data, !data.isEmpty {
-                let response = String(data: data, encoding: .utf8) ?? ""
-                continuation.resume(returning: response)
-            } else if let error = receiveError {
-                continuation.resume(throwing: error)
-            } else if isComplete {
-                connection.cancel()
-                continuation.resume(throwing: NSError(domain: "Connection closed by remote host", code: -1, userInfo: nil))
+        var accumulatedData = Data()
+        
+        func receiveNextChunk() {
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, isComplete, receiveError in
+                if let data = data, !data.isEmpty {
+                    accumulatedData.append(data)
+                    
+                    // Continue receiving if not complete
+                    if !isComplete {
+                        receiveNextChunk()
+                    } else {
+                        // Process complete response
+                        let response = String(data: accumulatedData, encoding: .utf8) ?? ""
+                        continuation.resume(returning: response)
+                        connection.cancel()
+                    }
+                } else if let error = receiveError {
+                    continuation.resume(throwing: error)
+                    connection.cancel()
+                } else if isComplete {
+                    // Process any accumulated data before closing
+                    if !accumulatedData.isEmpty {
+                        let response = String(data: accumulatedData, encoding: .utf8) ?? ""
+                        continuation.resume(returning: response)
+                    } else {
+                        continuation.resume(throwing: NSError(domain: "Connection closed by remote host", code: -1, userInfo: nil))
+                    }
+                    connection.cancel()
+                }
             }
         }
+        
+        receiveNextChunk()
     }
 }
